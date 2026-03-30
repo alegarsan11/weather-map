@@ -51,3 +51,7 @@ Este componente Angular integra un mapa con OpenLayers para mostrar la posición
 ## Resumen
 
 Este componente garantiza que el usuario siempre tenga una referencia visual clara de la posición del sol, mejorando la experiencia y permitiendo identificar la dirección solar sin importar la posición o nivel de zoom en el mapa.
+
+## Future Steps
+
+Podriamos hacer que se recalcule la posición del sol siempre, relativo a una feature (punto) movil y que se vaya modificando en funcion se reciba un nuevo punto
