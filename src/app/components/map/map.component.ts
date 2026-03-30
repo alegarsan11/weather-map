@@ -16,15 +16,10 @@ import * as SunCalc from 'suncalc';
 export class MapComponent implements AfterViewInit {
   map!: Map;
   solarOverlay!: Overlay;
-  sunIndicatorEl!: HTMLElement;
-  sunInfoEl!: HTMLElement;
+  moonOverlay!: Overlay;
 
-  lat: number = 40.4168;   // Madrid
+  lat: number = 40.4168;
   lon: number = -3.7038;
-  zoomThreshold: number = 5;
-  moonOverlay!: any;
-  moonIndicatorEl!: any;
-  moonInfoEl!: HTMLElement;
 
   constructor(@Inject(PLATFORM_ID) private platformId: Object) {}
 
@@ -35,9 +30,6 @@ export class MapComponent implements AfterViewInit {
   }
 
   initMap() {
-    const mapDiv = document.getElementById('map');
-    if (!mapDiv) return;
-
     this.map = new Map({
       target: 'map',
       layers: [
@@ -49,168 +41,88 @@ export class MapComponent implements AfterViewInit {
           })
         })
       ],
-      view: new View({ center: fromLonLat([this.lon, this.lat]), zoom: 2 })
+      view: new View({
+        center: fromLonLat([this.lon, this.lat]),
+        zoom: 3
+      })
     });
 
-    // Marcador del sol
-    const sunMarkerEl = document.createElement('div');
-    sunMarkerEl.className = 'solar-marker';
-    sunMarkerEl.innerText = '☀️';
-    const moonMarkerEl = document.createElement('div');
-    moonMarkerEl.className = 'moon-marker';
-    moonMarkerEl.innerText = '🌑';
-    this.solarOverlay = new Overlay({ element: sunMarkerEl, positioning: 'center-center' });
+    // ☀️ Sol
+    const sunEl = document.createElement('div');
+    sunEl.innerHTML = '☀️';
+    this.solarOverlay = new Overlay({ element: sunEl, positioning: 'center-center' });
     this.map.addOverlay(this.solarOverlay);
-    this.moonOverlay = new Overlay({ element: moonMarkerEl, positioning: 'center-center' });
+
+    // 🌙 Luna
+    const moonEl = document.createElement('div');
+    moonEl.innerHTML = '🌙';
+    this.moonOverlay = new Overlay({ element: moonEl, positioning: 'center-center' });
     this.map.addOverlay(this.moonOverlay);
-    
 
-    // Indicador del sol
-    this.sunIndicatorEl = this.createEl('solar-indicator', '☀️');
-    this.moonIndicatorEl = this.createEl('moon-indicator', '🌑');
-
-    // Info del sol
-    this.sunInfoEl = this.createEl('solar-info');
-    this.moonInfoEl = this.createEl('moon-info');
-
-
-    this.updateSunPosition();
-    this.updateMoonPosition();
-    setInterval(() => this.updateSunPosition(), 10000);
-
-    setInterval(() => this.updateMoonPosition(), 10000);
-
-    this.map.getView().on('change:resolution', () => this.updateSunPosition());
-    this.map.on('moveend', () => this.updateSunPosition());
-    this.map.getView().on('change:resolution', () => this.updateMoonPosition());
-    this.map.on('moveend', () => this.updateMoonPosition());
+    this.updateAll();
+    setInterval(() => this.updateAll(), 10000);
   }
 
-  updateMoonPosition() {
+  updateAll() {
     const now = new Date();
-    const test = SunCalc.getMoonPosition(now,this.lat,this.lon)
-    const moonCoord = fromLonLat([test.azimuth, test.altitude]);
-    const mapSize = this.map.getSize();
-    const margin = 20;
-    if (!mapSize || mapSize[0] === 0 || mapSize[1] === 0) return;
 
-    const moonPixel = this.map.getPixelFromCoordinate(moonCoord);
-    if (!moonPixel) {
-      this.moonOverlay.getElement()!.style.opacity= '0';
-      this.moonIndicatorEl.style.display = 'flex';
+    const sun = SunCalc.getPosition(now, this.lat, this.lon);
+    const moon = SunCalc.getMoonPosition(now, this.lat, this.lon);
 
-      const x = margin;
-      const y = mapSize[1] / 2;
+    const sunCoord = this.getProjectedCoord(sun.azimuth);
+    const moonCoord = this.getProjectedCoord(moon.azimuth);
 
-      this.moonIndicatorEl.style.position = 'absolute';
-      this.moonIndicatorEl.style.left = `${x}px`;
-      this.moonIndicatorEl.style.top = `${y}px`;
-      this.moonIndicatorEl.style.transform = `rotate(0deg)`;
-      return;
-    }
-    const moonTimes = SunCalc.getMoonTimes(now, this.lat, this.lon);
-    this.moonInfoEl.innerText =
-    `Luna → Lat: ${this.lat.toFixed(2)}, Lon: ${this.lon.toFixed(2)}\n` +
-    `Salida: ${moonTimes.rise.toLocaleTimeString()}, Puesta: ${moonTimes.set.toLocaleTimeString()}`;
-
-    const inView =
-    moonPixel[0] >= 0 && moonPixel[0] <= mapSize[0] &&
-    moonPixel[1] >= 0 && moonPixel[1] <= mapSize[1];
-
-  if (inView) {
+    this.solarOverlay.setPosition(sunCoord);
     this.moonOverlay.setPosition(moonCoord);
-    this.moonOverlay.getElement()!.style.opacity = '1';
-    this.moonIndicatorEl.style.display = 'none';
-  } else {
-    this.moonOverlay.getElement()!.style.opacity = '0';
-    this.moonIndicatorEl.style.display = 'flex';
-
-    let x = moonPixel[0];
-    let y = moonPixel[1];
-
-    if (x < margin) x = margin;
-    if (x > mapSize[0] - margin) x = mapSize[0] - margin;
-    if (y < margin) y = margin;
-    if (y > mapSize[1] - margin) y = mapSize[1] - margin;
-
-    this.moonIndicatorEl.style.position = 'absolute';
-    this.moonIndicatorEl.style.left = `${x}px`;
-    this.moonIndicatorEl.style.top = `${y}px`;
-
-    const centerPixel = [mapSize[0] / 2, mapSize[1] / 2];
-    const angle = Math.atan2(centerPixel[1] - y, centerPixel[0] - x);
-    this.moonIndicatorEl.style.transform = `rotate(${angle * 180 / Math.PI}deg)`;
-  }
   }
 
-  createEl(className: string, innerText?: string): HTMLElement {
-    const el = document.createElement('div');
-    el.className = className;
-    if (innerText) el.innerText = innerText;
-    document.body.appendChild(el);
-    return el;
+  // 🔥 CLAVE: conversión correcta
+  getProjectedCoord(azimuth: number) {
+    // Convertir a bearing (0 = norte)
+    const bearing = (azimuth + Math.PI) % (2 * Math.PI);
+
+    // Distancia arbitraria (km)
+    const distance = 10000;
+
+    return fromLonLat(
+      this.projectPoint(this.lat, this.lon, bearing, distance)
+    );
   }
 
-  updateSunPosition() {
-    const now = new Date();
-    const test = SunCalc.getPosition(now,this.lat,this.lon)
-    const sunCoord = fromLonLat([test.altitude, test.azimuth]);
-    const mapSize = this.map.getSize();
-    const margin = 20;
+  // 🌍 Proyección geodésica
+  projectPoint(lat: number, lon: number, bearing: number, distanceKm: number): [number, number] {
+    const R = 6371;
 
-    if (!mapSize || mapSize[0] === 0 || mapSize[1] === 0) return;
+    const d = distanceKm / R;
 
-    const sunPixel = this.map.getPixelFromCoordinate(sunCoord);
-    if (!sunPixel) {
-      this.solarOverlay.getElement()!.style.opacity = '0';
-      this.sunIndicatorEl.style.display = 'flex';
+    const lat1 = lat * Math.PI / 180;
+    const lon1 = lon * Math.PI / 180;
 
-      const x = margin;
-      const y = mapSize[1] / 2;
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(d) +
+      Math.cos(lat1) * Math.sin(d) * Math.cos(bearing)
+    );
 
-      this.sunIndicatorEl.style.position = 'absolute';
-      this.sunIndicatorEl.style.left = `${x}px`;
-      this.sunIndicatorEl.style.top = `${y}px`;
-      this.sunIndicatorEl.style.transform = `rotate(0deg)`;
-      return;
-    }
+    const lon2 = lon1 + Math.atan2(
+      Math.sin(bearing) * Math.sin(d) * Math.cos(lat1),
+      Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
+    );
 
-    const sunTimes = SunCalc.getTimes(now, this.lat, this.lon);
-    this.sunInfoEl.innerText =
-      `Sol → Lat: ${this.lat.toFixed(2)}, Lon: ${this.lon.toFixed(2)}\n` +
-      `Salida: ${sunTimes.sunrise.toLocaleTimeString()}, Puesta: ${sunTimes.sunset.toLocaleTimeString()}`;
-
-    const inView =
-      sunPixel[0] >= 0 && sunPixel[0] <= mapSize[0] &&
-      sunPixel[1] >= 0 && sunPixel[1] <= mapSize[1];
-
-    if (inView) {
-      this.solarOverlay.setPosition(sunCoord);
-      this.solarOverlay.getElement()!.style.opacity = '1';
-      this.sunIndicatorEl.style.display = 'none';
-    } else {
-      this.solarOverlay.getElement()!.style.opacity = '0';
-      this.sunIndicatorEl.style.display = 'flex';
-
-      let x = sunPixel[0];
-      let y = sunPixel[1];
-
-      if (x < margin) x = margin;
-      if (x > mapSize[0] - margin) x = mapSize[0] - margin;
-      if (y < margin) y = margin;
-      if (y > mapSize[1] - margin) y = mapSize[1] - margin;
-
-      this.sunIndicatorEl.style.position = 'absolute';
-      this.sunIndicatorEl.style.left = `${x}px`;
-      this.sunIndicatorEl.style.top = `${y}px`;
-
-      const centerPixel = [mapSize[0] / 2, mapSize[1] / 2];
-      const angle = Math.atan2(centerPixel[1] - y, centerPixel[0] - x);
-      this.sunIndicatorEl.style.transform = `rotate(${angle * 180 / Math.PI}deg)`;
-    }
+    return [
+      lon2 * 180 / Math.PI,
+      lat2 * 180 / Math.PI
+    ];
   }
 
-  zoomIn() { this.map.getView().setZoom(this.map.getView().getZoom()! + 1); }
-  zoomOut() { this.map.getView().setZoom(this.map.getView().getZoom()! - 1); }
-  centerMap() { this.map.getView().setCenter(fromLonLat([this.lon, this.lat])); }
+  zoomIn() {
+    this.map.getView().setZoom(this.map.getView().getZoom()! + 1);
+  }
+
+  zoomOut() {
+    this.map.getView().setZoom(this.map.getView().getZoom()! - 1);
+  }
+
+  centerMap() {
+    this.map.getView().setCenter(fromLonLat([this.lon, this.lat]));
+  }
 }
