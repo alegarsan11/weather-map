@@ -55,3 +55,5 @@ Este componente garantiza que el usuario siempre tenga una referencia visual cla
 ## Future Steps
 
 Podriamos hacer que se recalcule la posición del sol siempre, relativo a una feature (punto) movil y que se vaya modificando en funcion se reciba un nuevo punto
+
+Ademas de añadir la posición de la Luna https://github.com/mourner/suncalc
