@@ -37,6 +37,15 @@
   color: gold;
   text-shadow: 0 0 4px black;
 }
+.moon-marker {
+  position: absolute;
+  font-size: 28px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1000;
+  color: rgb(0, 255, 55);
+  text-shadow: 0 0 4px black;
+}
 
 .solar-indicator {
   position: absolute;
